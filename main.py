@@ -9,19 +9,20 @@ from solana.rpc.api import Client
 from solders.pubkey import Pubkey
 from telegram import Bot
 
-# Load config from environment variables
+# Config with hardcoded Helius API Key
 config = {
     "telegram_bot_token": os.getenv("telegram_bot_token"),
     "telegram_chat_id": os.getenv("telegram_chat_id"),
     "solana_rpc": os.getenv("solana_rpc"),
     "buy_amount_sol": float(os.getenv("buy_amount_sol", 0.01)),
-    "discord_webhook": os.getenv("discord_webhook")
+    "discord_webhook": os.getenv("discord_webhook"),
+    "helius_api_key": "f76a874c-43d3-4801-bbe8-aa36e5ea2349"
 }
 
 bot = Bot(token=config['telegram_bot_token'])
 client = Client(config['solana_rpc'])
 
-# CSV file setup
+# CSV logging setup
 CSV_FILE = 'alerts_log.csv'
 if not os.path.exists(CSV_FILE):
     with open(CSV_FILE, 'w', newline='') as file:
@@ -34,6 +35,12 @@ cursor = conn.cursor()
 cursor.execute('''CREATE TABLE IF NOT EXISTS alerted (mint TEXT PRIMARY KEY)''')
 conn.commit()
 
+# Bundle Check Cache
+bundle_cache = {}
+
+RECENT_MINT_WINDOW_SECONDS = 86400
+MULTI_MINT_THRESHOLD = 2
+
 def send_discord(message):
     if config['discord_webhook']:
         requests.post(config['discord_webhook'], json={"content": message})
@@ -41,6 +48,42 @@ def send_discord(message):
 def send_alert(message):
     bot.send_message(chat_id=config['telegram_chat_id'], text=message)
     send_discord(message)
+
+def check_bundle(creator_wallet):
+    if creator_wallet in bundle_cache:
+        return bundle_cache[creator_wallet]
+
+    print(f"Checking bundle risk for creator: {creator_wallet}")
+    url = f"https://api.helius.xyz/v0/addresses/{creator_wallet}/transactions?api-key={config['helius_api_key']}&limit=100"
+
+    try:
+        res = requests.get(url)
+        res.raise_for_status()
+        txs = res.json()
+        now = time.time()
+        recent_mints = []
+
+        for tx in txs:
+            if tx.get('type') in ['NFT_MINT', 'TOKEN_MINT']:
+                timestamp = tx.get('timestamp', 0)
+                if now - timestamp <= RECENT_MINT_WINDOW_SECONDS:
+                    recent_mints.append(tx)
+
+        if len(recent_mints) >= MULTI_MINT_THRESHOLD:
+            alert_msg = f"🚨 Bundle Detected ({len(recent_mints)} recent mints) from creator {creator_wallet}"
+            print(alert_msg)
+            send_alert(alert_msg)
+            bundle_cache[creator_wallet] = True
+            return True
+        else:
+            print(f"✅ No Bundle Risk for {creator_wallet}")
+            bundle_cache[creator_wallet] = False
+            return False
+
+    except Exception as e:
+        print(f"Bundle check failed for {creator_wallet}: {e}")
+        bundle_cache[creator_wallet] = False
+        return False
 
 def fetch_dexscreener():
     return requests.get("https://api.dexscreener.com/latest/dex/pairs/solana").json().get("pairs", [])
@@ -76,6 +119,11 @@ def process_token(token):
     txns_1h = int(token.get("txns", {}).get("h1", {}).get("buys", 0)) + int(token.get("txns", {}).get("h1", {}).get("sells", 0))
     tags = token.get("tags", [])
 
+    creator_wallet = token.get("baseToken", {}).get("address", None)
+    if not creator_wallet:
+        print(f"No creator wallet found for token {mint}. Skipping bundle check.")
+        return
+
     if liquidity < 10000 or fdv > 900000 or mcap < 350000 or age > 48:
         return
     if buys < 100 or sells < 70 or txns_1h < 100:
@@ -86,10 +134,13 @@ def process_token(token):
         return
     if get_top_holders_percent(mint) > 0.20:
         return
+    if check_bundle(creator_wallet):
+        print(f"⛔ Skipping {mint} due to bundle risk.")
+        return
 
     cursor.execute("SELECT mint FROM alerted WHERE mint = ?", (mint,))
     if cursor.fetchone():
-        return  # already alerted
+        return
 
     cursor.execute("INSERT INTO alerted (mint) VALUES (?)", (mint,))
     conn.commit()
@@ -119,7 +170,7 @@ def run_sniper():
             pairs = fetch_dexscreener()
             for token in pairs:
                 process_token(token)
-            time.sleep(300)  # 5 minutes
+            time.sleep(300)
         except Exception as e:
             print(f"Error: {e}")
             time.sleep(60)
