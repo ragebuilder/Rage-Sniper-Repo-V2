@@ -45,17 +45,13 @@ def update_gmgn_wallets():
     try:
         resp = requests.get(url)
         soup = BeautifulSoup(resp.text, 'html.parser')
-        data_text = soup.find("script", {"id": "__NEXT_DATA__"})
-        if not data_text:
-            print("GMGN scrape failed: No data script tag found")
-            return
-        data_json = json.loads(data_text.text)
-        entries = json.dumps(data_json).split("walletAddress")
+        wallet_elements = soup.find_all("a")
         wallets = set()
-        for entry in entries:
-            if len(entry) > 20:
-                wallet = entry.split('"')[2]
-                if len(wallet) > 30:
+        for link in wallet_elements:
+            href = link.get("href", "")
+            if href.startswith("/sol/address/") and len(href.split("_")) > 1:
+                wallet = href.split("_")[-1]
+                if len(wallet) >= 32:
                     wallets.add(wallet)
         if wallets:
             GMGN_WALLETS.clear()
