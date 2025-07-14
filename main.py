@@ -113,37 +113,6 @@ if __name__ == "__main__":
     run_sniper()
 
 # File: requirements.txt
-requests
-python-telegram-bot
-solana
-solders
-
-# File: .env.example
-telegram_bot_token=8090955789:AAHJDfyhF-1rJ1V2K1-GTzF2jXDQKc9jIcg
-telegram_chat_id=https://t.me/POTRageBot
-solana_rpc=https://api.mainnet-beta.solana.com
-buy_amount_sol=0.01
-discord_webhook=https://discordapp.com/api/webhooks/1394217215858839633/AQhR5w2NJxBzcCg8C5ro45Am_YVHMTT_XvlYDs-2tQtgvf_SpmtDP_FVbtxem17Nqru7
-
-# File: README.md
-# Rage Sniper Bot
-
-Solana Memecoin Sniper Bot powered by Dexscreener, GMGN, Rugcheck, and Telegram + Discord alerts.
-
-## Deployment
-
-1. Create a free account on Render.com
-2. Connect your GitHub repository (this repo)
-3. Set Environment Variables using `.env.example`
-4. Use `python main.py` as the start command
-
-## Features
-
-- FasolBot-ready sniper alerts
-- Discord + Telegram notifications
-- CSV logging of all detected tokens
-- Rugcheck audit filter
-- Top holders distribution check
 
 ## Notes
 
