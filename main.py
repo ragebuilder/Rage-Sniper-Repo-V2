@@ -1,6 +1,3 @@
-# Folder: rage-sniper
-
-# File: main.py
 import json
 import time
 import sqlite3
@@ -52,7 +49,8 @@ def check_rug(mint):
     try:
         res = requests.get(f"https://api.rugcheck.xyz/v1/tokens/{mint}/report")
         return res.ok and res.json().get("status", "").upper() == "GOOD"
-    except: return False
+    except:
+        return False
 
 def get_top_holders_percent(mint):
     try:
@@ -62,7 +60,8 @@ def get_top_holders_percent(mint):
         total = sum([int(a.amount) for a in accounts])
         top10 = sum([int(a.amount) for a in accounts[:10]])
         return top10 / total if total else 1.0
-    except: return 1.0
+    except:
+        return 1.0
 
 def process_token(token):
     mint = token.get("pairAddress")
@@ -71,26 +70,42 @@ def process_token(token):
     liquidity = float(token.get("liquidity", 0))
     fdv = float(token.get("fdv", 0))
     mcap = float(token.get("marketCap", 0))
-    age = (time.time() - int(token.get("pairCreatedAt", 0))/1000) / 3600
+    age = (time.time() - int(token.get("pairCreatedAt", 0)) / 1000) / 3600
     buys = int(token.get("txns", {}).get("buys", 0))
     sells = int(token.get("txns", {}).get("sells", 0))
     txns_1h = int(token.get("txns", {}).get("h1", {}).get("buys", 0)) + int(token.get("txns", {}).get("h1", {}).get("sells", 0))
     tags = token.get("tags", [])
 
-    if liquidity < 10000 or fdv > 900000 or mcap < 350000 or age > 48: return
-    if buys < 100 or sells < 70 or txns_1h < 100: return
-    if "boosted" not in tags and "ads" not in tags: return
-
-    if not check_rug(mint): return
-    if get_top_holders_percent(mint) > 0.20: return
+    if liquidity < 10000 or fdv > 900000 or mcap < 350000 or age > 48:
+        return
+    if buys < 100 or sells < 70 or txns_1h < 100:
+        return
+    if "boosted" not in tags and "ads" not in tags:
+        return
+    if not check_rug(mint):
+        return
+    if get_top_holders_percent(mint) > 0.20:
+        return
 
     cursor.execute("SELECT mint FROM alerted WHERE mint = ?", (mint,))
-    if cursor.fetchone(): return  # already alerted
+    if cursor.fetchone():
+        return  # already alerted
 
     cursor.execute("INSERT INTO alerted (mint) VALUES (?)", (mint,))
     conn.commit()
 
-    message = f"\ud83d\ude80 FasolBot Snipe Alert!\n\nToken: ${name}\nMint: `{mint}`\n\n/buy SOL {mint} {config['buy_amount_sol']} --tp 2x --sl 30%\n\nRugcheck: GOOD\nLiquidity: ${liquidity:,.0f}\nVolume: ${volume:,.0f}\nTxns (1h): {txns_1h}"
+    message = f"""🚀 FasolBot Snipe Alert!
+
+Token: ${name}
+Mint: `{mint}`
+
+/buy SOL {mint} {config['buy_amount_sol']} --tp 2x --sl 30%
+
+Rugcheck: GOOD
+Liquidity: ${liquidity:,.0f}
+Volume: ${volume:,.0f}
+Txns (1h): {txns_1h}
+"""
 
     send_alert(message)
 
@@ -111,13 +126,3 @@ def run_sniper():
 
 if __name__ == "__main__":
     run_sniper()
-
-# File: requirements.txt
-
-## Notes
-
-- Alerts are formatted for manual execution via FasolBot.
-- This bot is signal-only, not executing trades directly.
-
-# File: alerts_log.csv
-# (Auto-generated at runtime)
