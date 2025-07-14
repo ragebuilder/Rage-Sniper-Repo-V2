@@ -3,11 +3,11 @@ app = "rage-sniper-repo-v2"
 kill_signal = "SIGINT"
 kill_timeout = 5
 
-[processes]
-  worker = "python main.py"
-
 [env]
   PYTHONUNBUFFERED = "1"
 
 [experimental]
   auto_rollback = true
+
+[processes]
+  worker = "python main.py"
