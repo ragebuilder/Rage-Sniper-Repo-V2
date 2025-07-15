@@ -23,12 +23,10 @@ def fetch_wallets():
         wallets = []
 
         for item in client.dataset(run["defaultDatasetId"]).iterate_items():
-            # Handle both possible key names
-            address = item.get('wallet_address') or item.get('walletAddress')
+            address = item.get("wallet_address") or item.get("walletAddress") or item.get("address")
             if address:
+                print("[DEBUG] Item fetched:", item)
                 wallets.append(address)
-            else:
-                print(f"[DEBUG] Skipped item with missing address: {item}")
 
         print(f"[INFO] Retrieved {len(wallets)} wallets from Apify.")
         return wallets
