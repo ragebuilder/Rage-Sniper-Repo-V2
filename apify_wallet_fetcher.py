@@ -20,17 +20,15 @@ def fetch_wallets():
 
         print("[INFO] Fetching smart wallets from Apify...")
         run = client.actor("jgxPNaFu0r4jDOXD1").call(run_input=run_input)
-        print("[DEBUG] Dataset ID:", run.get("defaultDatasetId"))
-
         wallets = []
 
         for item in client.dataset(run["defaultDatasetId"]).iterate_items():
-            print("[DEBUG] Item fetched:", item)
-
-            # Adjusted based on Apify dataset actual key
-            address = item.get('trackedWalletAddress')  # Most likely correct key
+            # Handle both possible key names
+            address = item.get('wallet_address') or item.get('walletAddress')
             if address:
                 wallets.append(address)
+            else:
+                print(f"[DEBUG] Skipped item with missing address: {item}")
 
         print(f"[INFO] Retrieved {len(wallets)} wallets from Apify.")
         return wallets
