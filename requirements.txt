@@ -1,5 +1,3 @@
-requests
-python-telegram-bot
-apify_api_token
-solana
 apify-client
+python-telegram-bot
+requests
